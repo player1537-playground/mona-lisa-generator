@@ -1,5 +1,7 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <errno.h>
 #define NEW(t, n) ((t*)malloc(sizeof(t)*(n)))
 #define START_LEN 500
 
@@ -29,14 +31,14 @@ int calcdiff(val_t color1, val_t color2) {
 
 int main(int argc, char** argv) {
   char buffer[1024];
-  long difference = 0;
+  unsigned long long difference = 0;
   while (!feof(stdin)) {
-    val_t color1, color2;
-    fscanf(stdin, "%x %x", &color1, &color2);
-    int diff = calcdiff(color1, color2);
-    if (argc > 1)
-      fprintf(stderr, "%ld + %d (%x == %x) %s\n", difference, diff, color1, color2, buffer);
-    difference += diff;
+    fgets(buffer, 1024, stdin);
+    errno = 0;
+    unsigned long long result = strtoull(buffer, NULL, 16);
+    if (errno != EINVAL && errno != ERANGE) {
+      difference += result;
+    }
     fgets(buffer, 1024, stdin);
     fgets(buffer, 1024, stdin);
     fgets(buffer, 1024, stdin);
@@ -46,7 +48,7 @@ int main(int argc, char** argv) {
     //append_array(pic1, color1);
     //append_array(pic2, color2);
   }
-  printf("%ld\n", difference);
+  printf("%llu\n", difference);
   /*
   int i = 0;
   for (; i < 10; i++) {

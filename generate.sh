@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+BASH_LIBRARY=$HOME/src/bash
+LIB_THREADS=$BASH_LIBRARY/thread.bash
+THREAD_DEBUG=1
+source $LIB_THREADS || exit 1
+
 WORK=$PWD/work
 #^ $GENERATION_DIR
 # This is the dir used for each image as it's
@@ -29,6 +35,12 @@ TARGET=
 #^ $THREADS
 # This is the number of threads that will be executed.
 THREADS=${THREADS:-1}
+#^ $WIDTH
+# This is the width of the image.
+WIDTH=
+#^ $HEIGHT
+# This is the height of the image.
+HEIGHT=
 
 #^ init
 #` init targetimg
@@ -38,8 +50,12 @@ function init() {
     local targetimg
     targetimg=$1
     TARGET=${targetimg:?Must supply an image to recreate}
+    # I'll do this better later. Sorry.
+    WIDTH=$(identify -format %w $TARGET)
+    HEIGHT=$(identify -format %h $TARGET)
     mkdir -p $WORK
     mkdir -p $GENERATION_DIR
+    > $BASE_SVG
     cat > $SVG_HEADER <<EOF
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -89,7 +105,7 @@ function polygon() {
 	points+=( $(rand 0 $WIDTH),$(rand 0 $HEIGHT) )
     done
     IFS=' '
-    echo "<polygon points=\"$points\" style=\"fill:#$color;opacity:0.5\" />"
+    echo "<polygon points=\"${points[@]}\" style=\"fill:#$color;opacity:0.5\" />"
 }
 
 #^ delete-last-line
@@ -151,19 +167,21 @@ function generate-one-image() {
     local poly score
     poly=$(polygon)
     score=$(echo "$poly" | calcscore)
-    : ${filename:?Internal error: Filename must not be empty}
+    : ${score:?Internal error: Filename must not be empty}
     echo "$poly" > $GENERATION_DIR/$score
 }
 
 function generate-and-update-best() {
-    local i poolname
+    local i poolname best
     poolname=gen-images
     for ((i=0; i<$THREADS; i++)); do
-	spawn-thread $poolname generate-one-image $WORK/image-$i.svg
+	spawn-thread $poolname generate-one-image
     done
     join-pool $poolname
     echo Finished generating + updating
-    sleep 5s
+    best=$(ls $GENERATION_DIR | sort -n | head -n 1 | tr -d "\n")
+    cat $GENERATION_DIR/$best >> $BASE_SVG
+    rm $GENERATION_DIR/*
 }
 
 function main {
