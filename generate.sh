@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-BASH_LIBRARY=$HOME/src/bash
+BASH_LIBRARY=${BASH_LIBRARY:-$PWD/bash-stuff}
 LIB_THREADS=$BASH_LIBRARY/thread.bash
 THREAD_DEBUG=1
 source $LIB_THREADS || exit 1
