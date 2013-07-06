@@ -1,31 +1,36 @@
 #!/bin/bash
 
 WORK=$PWD/work
+#^ $GENERATION_DIR
+# This is the dir used for each image as it's
+#+ created. This way we can easily sort by value
+#+ all of the new images to find the best one.
+GENERATION_DIR=$WORK/images
 SVG_HEADER=$WORK/header.svg
 SVG_FOOTER=$WORK/footer.svg
-## $MAX_VERT
+#^ $MAX_VERT
 # This is the maximum number of vertices each new
 #+ polygon will use.
 MAX_VERT=10
-## $MIN_VERT
+#^ $MIN_VERT
 # Likewise, this is the minimum number of vertices.
 MIN_VERT=3
-## $BASE_SVG
+#^ $BASE_SVG
 # This is the current file as determined by the best 
 #+ image in each iteration.  As the program goes on, 
 #+ $BASE_SVG will be updated to match what the 
 #+ current image looks like.  Each subsequent image
 #+ that gets created will use this as its base.
 BASE_SVG=$WORK/base.svg
-## $TARGET
+#^ $TARGET
 # This is the image that the program will strive to
 #+ recreate.
 TARGET=
-## $THREADS
+#^ $THREADS
 # This is the number of threads that will be executed.
 THREADS=${THREADS:-1}
 
-## init
+#^ init
 #` init targetimg
 # Saves the image to recreate as $TARGET, and generates
 #+ the header and footer for each SVG file.
@@ -34,6 +39,7 @@ function init() {
     targetimg=$1
     TARGET=${targetimg:?Must supply an image to recreate}
     mkdir -p $WORK
+    mkdir -p $GENERATION_DIR
     cat > $SVG_HEADER <<EOF
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -86,7 +92,7 @@ function polygon() {
     echo "<polygon points=\"$points\" style=\"fill:#$color;opacity:0.5\" />"
 }
 
-## delete-last-line
+#^ delete-last-line
 #` delete-last-line file
 # Simply deletes the last line in the file. If this
 #+ function is called several times at once, then it
@@ -131,26 +137,33 @@ function get-differences-as-text() {
 ## calculate-score
 #` calculate-score
 # Takes the inside part of an SVG file (no header
-#+ or footer) and calculates the score for it.
-#+ The score should be an integer, although it
-#+ may be very large.
+#+ or footer) as well as the base SVG file,  and
+#+ calculates the score for it. The score should
+#+ be an integer, although it may be very large.
 function calcscore() {
-    cat $SVG_HEADER - $SVG_FOOTER \
+    cat $SVG_HEADER $BASE_SVG - $SVG_FOOTER \
 	| get-differences-as-text \
 	| text-to-pixel-data \
 	| ./scorecalc
 }
 
 function generate-one-image() {
-    :
+    local poly score
+    poly=$(polygon)
+    score=$(echo "$poly" | calcscore)
+    : ${filename:?Internal error: Filename must not be empty}
+    echo "$poly" > $GENERATION_DIR/$score
 }
 
 function generate-and-update-best() {
-    local i
+    local i poolname
+    poolname=gen-images
     for ((i=0; i<$THREADS; i++)); do
-	spawn-thread gen-images generate-one-image $WORK/image-$i.svg
+	spawn-thread $poolname generate-one-image $WORK/image-$i.svg
     done
-    join-pool gen-images
+    join-pool $poolname
+    echo Finished generating + updating
+    sleep 5s
 }
 
 function main {
